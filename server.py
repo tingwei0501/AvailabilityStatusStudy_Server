@@ -12,6 +12,29 @@ mongo = PyMongo(app)
 def hello():
     return "Hello World!"
 
+@app.route('/getList', methods=['POST'])
+def getList():
+    collection = mongo.db.user
+    json_request = request.get_json(force=True, silent=True)
+    print (json_request)
+    userId = json_request['id']
+    data = collection.find({'id':userId})
+    message = dict()
+    doc = list()
+    if data.count() != 0:
+        message['response'] = 'success'
+        for d in data:
+            group = d['group']
+        contactList = collection.find({'group':group, 'id':{'$ne':userId}}, {'_id':0})
+        for c in contactList:
+            doc.append(c)
+        message['list'] = doc
+    else:
+        message['response'] = 'failed'
+    print (message)
+    print (type(message))
+    return json.dumps(message)
+
 @app.route('/idCheck', methods=['POST'])
 def idCheck():
     collection = mongo.db.user
@@ -22,6 +45,7 @@ def idCheck():
         message = "可以使用此帳號"
     else:
         message = "此帳號已經存在，請用別的帳號"
+
     return json.dumps({'response':message})
 
 @app.route('/signUp', methods=['POST'])
@@ -34,9 +58,8 @@ def signUp():
         message = "failed"
     else:
         collection.insert(json_request)
-   
-        #message = json.dumps({'response':'ok'})
         message = userId + " 註冊成功"
+
     return json.dumps({'response':message})
 
 @app.route('/signIn', methods=['POST'])
@@ -47,21 +70,16 @@ def signIn():
     userId = json_request['id']
     userPassword = json_request['password']
     data = collection.find({'id': userId})
-    message = ''
     if data.count() == 0:
-        print ('no user')
         message = "no user"
     else:
         for item in data:
             if item['password'] == userPassword:
-                print ("success")
                 message = "success" 
             else:
-                print ("failed")
                 message = "failed"
-    #message = json.dumps({'response':'exist'})
+                
     return json.dumps({'response':message})
-
 
 
 if __name__ == '__main__':
