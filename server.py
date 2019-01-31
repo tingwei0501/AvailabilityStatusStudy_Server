@@ -31,8 +31,7 @@ def getList():
         message['list'] = doc
     else:
         message['response'] = 'failed'
-    print (message)
-    print (type(message))
+        
     return json.dumps(message)
 
 @app.route('/idCheck', methods=['POST'])
