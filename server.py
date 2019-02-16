@@ -41,9 +41,9 @@ def idCheck():
     print (json_request)
     userId = json_request['id']
     if collection.count({'id':userId}) == 0:
-        message = "可以使用此帳號"
+        message = "success"
     else:
-        message = "此帳號已經存在，請用別的帳號"
+        message = "failed"
 
     return json.dumps({'response':message})
 
@@ -57,7 +57,7 @@ def signUp():
         message = "failed"
     else:
         collection.insert(json_request)
-        message = userId + " 註冊成功"
+        message = "success"
 
     return json.dumps({'response':message})
 
