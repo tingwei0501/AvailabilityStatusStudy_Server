@@ -1,5 +1,7 @@
 from flask import Flask, request, json
 from flask_pymongo import PyMongo
+import base64
+import os
 
 app = Flask(__name__)
 app.config['MONGO_DBNAME'] = 'statusStudy'
@@ -19,6 +21,7 @@ def getList():
     print (json_request)
     userId = json_request['id']
     data = collection.find({'id':userId})
+
     message = dict()
     doc = list()
     if data.count() != 0:
@@ -27,6 +30,10 @@ def getList():
             group = d['group']
         contactList = collection.find({'group':group, 'id':{'$ne':userId}}, {'_id':0})
         for c in contactList:
+            if 'img' in c:
+                image = c['img']
+                decodeImg = image.decode()
+                c['img'] = decodeImg
             doc.append(c)
         message['list'] = doc
     else:
@@ -40,12 +47,12 @@ def idCheck():
     json_request = request.get_json(force=True, silent=True)
     print (json_request)
     userId = json_request['id']
-    if collection.count({'id':userId}) == 0:
+    if collection.count({'id': userId}) == 0:
         message = "success"
     else:
         message = "failed"
 
-    return json.dumps({'response':message})
+    return json.dumps({'response': message})
 
 @app.route('/signUp', methods=['POST'])
 def signUp():
@@ -53,11 +60,21 @@ def signUp():
     json_request = request.get_json(force=True, silent=True)
     print (json_request)
     userId = json_request['id']
-    if collection.count({'id':userId}) != 0:
+    
+    if collection.count({'id': userId}) != 0:
         message = "failed"
     else:
+        ### add image
+        imgFile = 'images/' + userId + '.jpg'
+        if os.path.isfile(imgFile):
+            with open(imgFile, "rb") as image_file:
+                encoded_string = base64.b64encode(image_file.read())
+            json_request['img'] = encoded_string
+            message = "success"
+        else:
+            message = "image not found"
+
         collection.insert(json_request)
-        message = "success"
 
     return json.dumps({'response':message})
 
