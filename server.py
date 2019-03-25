@@ -28,13 +28,15 @@ def getList():
         message['response'] = 'success'
         for d in data:
             group = d['group']
-        contactList = collection.find({'group':group, 'id':{'$ne':userId}}, {'_id':0})
+        contactList = collection.find({'group':group, 'id':{'$ne':userId}}, {'_id':0, 'img':0})
         for c in contactList:
-            if 'img' in c:
-                image = c['img']
-                decodeImg = image.decode()
-                c['img'] = decodeImg
+            #if 'img' in c:
+                #image = c['img']
+                #decodeImg = image.decode()
+                #c['img'] = decodeImg
             doc.append(c)
+           
+            
         message['list'] = doc
     else:
         message['response'] = 'failed'
@@ -65,14 +67,14 @@ def signUp():
         message = "failed"
     else:
         ### add image
-        imgFile = 'images/' + userId + '.jpg'
-        if os.path.isfile(imgFile):
-            with open(imgFile, "rb") as image_file:
-                encoded_string = base64.b64encode(image_file.read())
-            json_request['img'] = encoded_string
-            message = "success"
-        else:
-            message = "image not found"
+        #imgFile = 'images/' + userId + '.jpg'
+        #if os.path.isfile(imgFile):
+            #with open(imgFile, "rb") as image_file:
+                #encoded_string = base64.b64encode(image_file.read())
+            #json_request['img'] = encoded_string
+        message = "success"
+        #else:
+            #message = "image not found"
 
         collection.insert(json_request)
 
