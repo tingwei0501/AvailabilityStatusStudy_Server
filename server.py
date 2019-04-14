@@ -28,7 +28,7 @@ def getList():
         message['response'] = 'success'
         for d in data:
             group = d['group']
-        contactList = collection.find({'group':group, 'id':{'$ne':userId}}, {'_id':0, 'img':0})
+        contactList = collection.find({'group':group}, {'_id':0, 'img':0})
         for c in contactList:
             #if 'img' in c:
                 #image = c['img']
