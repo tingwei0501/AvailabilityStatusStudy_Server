@@ -17,14 +17,36 @@ ISOTIMEFORMAT = '%Y-%m-%d %H:%M:%S'
 def hello():
     return "Hello World!"
 
+@app.route('/storeQuestionnaire', methods=['POST'])
+def storeQuestionnaire():
+    request_c = str(request.args['collection'])
+    json_request = request.get_json(force=True, silent=True)
+
+    if request_c == 'contactQuestionnaire':
+        collection = mongo.db.contactQuestionnaire
+    elif request_c == 'selfQuestionnaire':
+        collection = mongo.db.selfQuestionnaire
+    
+    try:
+        print (json_request)
+        ##### insert here #####
+        collection.insert(json_request)
+    except Exception as e:
+        print (e)
+        message = {'response': 'failed'}
+    else:
+        message = {'response': 'success insert'}
+
+    return json.dumps(message)
+
 @app.route('/storeSelfStatus', methods=['POST'])
 def storeSelfStatus():
     collection = mongo.db.dump
     json_request = request.get_json(force=True, silent=True)
     print (json_request)
     ##### get: {'id': 'tingwei', 'status': 30, 'presentWay': 'digit', 'createdTime': 1557294395291}
-    ##### need to insert 5/8 #####
     try:
+        ##### !!!!! uncomment !!!!! #####
         collection.insert(json_request)
     except Exception as e:
         print (e)
@@ -44,48 +66,56 @@ def getContactStatus():
     data = collection.find({'id': contactId})
     res = data.sort('createdTime', -1).limit(1)
 
+    message = dict()
     for item in res:
-        if ('presentWay' in item and 'status' in item and 'statusText' in item and 'statusColor' in item):
-            message = {'presentWay': item['presentWay'], 'status': item['status'], 'createdTime': item['createdTime'], 'statusText': item['statusText'], 'statusColor': item['statusColor']}
-        else:
-            message = {'response': 'not found data'}
+        if item['afterEdit']: #有更新
+            if ('presentWayEdit' in item and 'statusEdit' in item and 'statusTextEdit' in item and 'statusColorEdit' in item and 'statusFormEdit' in item):
+                print ("in edit")
+                message = {'presentWay': item['presentWayEdit'], 'status': item['statusEdit'], 'createdTime': item['createdTimeEdit'], 'statusText': item['statusTextEdit'], 'statusColor': item['statusColorEdit'], 'statusForm': item['statusFormEdit']}
+            else:
+                message = {'response': 'not found data'}
+        else:  #正常
+            if ('presentWay' in item and 'status' in item and 'statusText' in item and 'statusColor' in item):
+                message = {'presentWay': item['presentWay'], 'status': item['status'], 'createdTime': item['createdTime'], 'statusText': item['statusText'], 'statusColor': item['statusColor'], 'statusForm': item['statusForm']}
+            else:
+                message = {'response': 'not found data'}
     
     # print ("return message >>>>>>>>>>", message)
 
     return json.dumps(message)
 
-@app.route('/getSelfStatus', methods=['POST'])
-def getStatus():
+# @app.route('/getSelfStatus', methods=['POST'])
+# def getStatus():
+#     collection = mongo.db.dump
+#     json_request = request.get_json(force=True, silent=True)
+#     # print (json_request)
 
-    collection = mongo.db.dump
-    json_request = request.get_json(force=True, silent=True)
-    # print (json_request)
+#     status = random.choice([10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 95])
+#     presentWay = random.choice(['text', 'digit', 'graphic'])
+#     createdTime = time.time() * 1000
+#     statusColor = -13408615  # default color
 
-    status = random.choice([10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 95])
-    presentWay = random.choice(['text', 'digit', 'graphic'])
-    createdTime = time.time() * 1000
-    statusColor = -13408615  # default color
+#     json_request['status'] = status
+#     json_request['createdTime'] = createdTime
+#     json_request['timeString'] = time.strftime(ISOTIMEFORMAT, time.localtime())
+#     json_request['presentWay'] = presentWay
+    # json_request['statusColor'] =  statusColor 
+    # if status<50 and (presentWay=='text'):
+    #     json_request['statusText'] = '回覆率低'
+    #     statusText = '回覆率低'
+    # elif status>50 and (presentWay=='text'):
+    #     json_request['statusText'] = '回覆率高'
+    #     statusText = '回覆率高'
+    # else:
+    #     json_request['statusText'] = ''
+    #     statusText = ''
 
-    json_request['status'] = status
-    json_request['createdTime'] = createdTime
-    json_request['timeString'] = time.strftime(ISOTIMEFORMAT, time.localtime())
-    json_request['presentWay'] = presentWay
-    json_request['statusColor'] =  statusColor 
-    if status<50 and (presentWay=='text'):
-        json_request['statusText'] = '回覆率低'
-        statusText = '回覆率低'
-    elif status>50 and (presentWay=='text'):
-        json_request['statusText'] = '回覆率高'
-        statusText = '回覆率高'
-    else:
-        json_request['statusText'] = ''
-        statusText = ''
+    # # print ("after: ", json_request)
+    # ##### store to database #####
+    # ##### !!!!! uncomment !!!!! #####
+    # collection.insert(json_request)
 
-    # print ("after: ", json_request)
-    ##### store to database #####
-    collection.insert(json_request)
-
-    return json.dumps({'status': status, 'createdTime': createdTime, 'presentWay': presentWay, 'statusText': statusText, 'statusColor': statusColor})
+    # return json.dumps({'status': status, 'createdTime': createdTime, 'presentWay': presentWay, 'statusText': statusText, 'statusColor': statusColor})
 
 @app.route('/getList', methods=['POST'])
 def getList():
@@ -100,8 +130,14 @@ def getList():
     if data.count() != 0:
         message['response'] = 'success'
         for d in data:
-            group = d['group']
-        contactList = collection.find({'group':group}, {'_id':0, 'img':0})
+            if "group" in d:
+                group = d['group'] # f no group, use code
+                contactList = collection.find({'$or':[{'group':group}, {'code': userId}]}, {'_id':0, 'img':0})
+            elif "code" in d:
+                print ("### partial subject ###")
+                code = d['code']
+                contactList = collection.find({'id':code}, {'_id':0, 'img':0})
+
         for c in contactList:
             #if 'img' in c:
                 #image = c['img']
