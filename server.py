@@ -44,7 +44,7 @@ def storeSelfStatus():
     collection = mongo.db.dump
     json_request = request.get_json(force=True, silent=True)
     print (json_request)
-    ##### get: {'id': 'tingwei', 'status': 30, 'presentWay': 'digit', 'createdTime': 1557294395291}
+    ##### get: {'user_id': 'tingwei', 'status': 30, 'presentWay': 'digit', 'createdTime': 1557294395291}
     try:
         ##### !!!!! uncomment !!!!! #####
         collection.insert(json_request)
@@ -63,59 +63,34 @@ def getContactStatus():
     print (json_request)
     contactId = json_request['id']
 
-    data = collection.find({'id': contactId})
+    data = collection.find({'user_id': contactId})
     res = data.sort('createdTime', -1).limit(1)
 
     message = dict()
+    editOrNot = False
+
     for item in res:
-        if item['afterEdit']: #有更新
+        if 'afterEdit' in item: 
+            if item['afterEdit']: #有更新
+                editOrNot = True 
+        if editOrNot:
             if ('presentWayEdit' in item and 'statusEdit' in item and 'statusTextEdit' in item and 'statusColorEdit' in item and 'statusFormEdit' in item):
                 print ("in edit")
                 message = {'presentWay': item['presentWayEdit'], 'status': item['statusEdit'], 'createdTime': item['createdTimeEdit'], 'statusText': item['statusTextEdit'], 'statusColor': item['statusColorEdit'], 'statusForm': item['statusFormEdit']}
+            elif ('presentWay' in item and 'status' in item and 'statusText' in item and 'statusColor' in item):
+                message = {'presentWay': item['presentWay'], 'status': item['status'], 'createdTime': item['createdTime'], 'statusText': item['statusText'], 'statusColor': item['statusColor'], 'statusForm': item['statusForm']}
             else:
-                message = {'response': 'not found data'}
-        else:  #正常
+                message = {'response': 'not found data'}    
+        else:
             if ('presentWay' in item and 'status' in item and 'statusText' in item and 'statusColor' in item):
                 message = {'presentWay': item['presentWay'], 'status': item['status'], 'createdTime': item['createdTime'], 'statusText': item['statusText'], 'statusColor': item['statusColor'], 'statusForm': item['statusForm']}
             else:
                 message = {'response': 'not found data'}
-    
+
+
     # print ("return message >>>>>>>>>>", message)
 
     return json.dumps(message)
-
-# @app.route('/getSelfStatus', methods=['POST'])
-# def getStatus():
-#     collection = mongo.db.dump
-#     json_request = request.get_json(force=True, silent=True)
-#     # print (json_request)
-
-#     status = random.choice([10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 95])
-#     presentWay = random.choice(['text', 'digit', 'graphic'])
-#     createdTime = time.time() * 1000
-#     statusColor = -13408615  # default color
-
-#     json_request['status'] = status
-#     json_request['createdTime'] = createdTime
-#     json_request['timeString'] = time.strftime(ISOTIMEFORMAT, time.localtime())
-#     json_request['presentWay'] = presentWay
-    # json_request['statusColor'] =  statusColor 
-    # if status<50 and (presentWay=='text'):
-    #     json_request['statusText'] = '回覆率低'
-    #     statusText = '回覆率低'
-    # elif status>50 and (presentWay=='text'):
-    #     json_request['statusText'] = '回覆率高'
-    #     statusText = '回覆率高'
-    # else:
-    #     json_request['statusText'] = ''
-    #     statusText = ''
-
-    # # print ("after: ", json_request)
-    # ##### store to database #####
-    # ##### !!!!! uncomment !!!!! #####
-    # collection.insert(json_request)
-
-    # return json.dumps({'status': status, 'createdTime': createdTime, 'presentWay': presentWay, 'statusText': statusText, 'statusColor': statusColor})
 
 @app.route('/getList', methods=['POST'])
 def getList():
