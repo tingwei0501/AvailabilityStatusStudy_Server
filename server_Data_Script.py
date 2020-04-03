@@ -14,8 +14,8 @@ def checkDumpData():
     query = json.loads(jsonquery)
     user_id = query['id']
 
-    start = datetime.datetime(2019, query['query_start_month'], query['query_start_date']-1, 16)
-    end = datetime.datetime(2019, query['query_end_month'], query['query_end_date'], 15, 59, 59)
+    start = datetime.datetime(2020, query['query_start_month'], query['query_start_date']-1, 16)
+    end = datetime.datetime(2020, query['query_end_month'], query['query_end_date'], 15, 59, 59)
 
     collection = mongo.db.dump
     dumpDataCoount = collection.find({'user_id': user_id, 'createdTime': {'$gte': start.timestamp()*1000, '$lt': end.timestamp()*1000} }).count()
@@ -23,6 +23,21 @@ def checkDumpData():
     message = {'count': dumpDataCoount}
     return json.dumps(message)
 
+@app.route('/lastDumpData', methods=['POST'])
+def lastDumpData():
+    jsonquery = request.get_json(force=True, silent=True)
+    query = json.loads(jsonquery)
+    user_id = query['id']
+
+    collection = mongo.db.dump
+    lastDumpData = collection.find({'user_id': user_id}).sort("createdTime", -1).limit(1)
+    lastTime = ''
+    user = ''
+    for item in lastDumpData:
+        lastTime = item['createdTimeString']
+        user = item['user_id']
+    message = {'user': user, 'lastDumpDataTime': lastTime}
+    return json.dumps(message)
 
 @app.route('/checkContactStatusRate', methods=['POST'])
 def checkContactStatusRate():
@@ -30,8 +45,8 @@ def checkContactStatusRate():
     query = json.loads(jsonquery)
     user_id = query['id']
     # convert to UTC+8
-    start = datetime.datetime(2019, query['query_start_month'], query['query_start_date']-1, 16)
-    end = datetime.datetime(2019, query['query_end_month'], query['query_end_date'], 15, 59, 59)
+    start = datetime.datetime(2020, query['query_start_month'], query['query_start_date']-1, 16)
+    end = datetime.datetime(2020, query['query_end_month'], query['query_end_date'], 15, 59, 59)
 
     collection = mongo.db.contactQuestionnaire
     dataSet = collection.find({'user_id': user_id, 'checkContactStatusTime': {'$gte': start.timestamp()*1000, '$lt': end.timestamp()*1000} })
@@ -54,8 +69,8 @@ def wordToMe():
     query = json.loads(jsonquery)
     user_id = query['id']
 
-    start = datetime.datetime(2019, query['query_start_month'], query['query_start_date']-1, 16)
-    end = datetime.datetime(2019, query['query_end_month'], query['query_end_date'], 15, 59, 59)
+    start = datetime.datetime(2020, query['query_start_month'], query['query_start_date']-1, 16)
+    end = datetime.datetime(2020, query['query_end_month'], query['query_end_date'], 15, 59, 59)
     collection = mongo.db.contactQuestionnaire
     dataSet = collection.find({'contactId': user_id, 'checkContactStatusTime': {'$gte': start.timestamp()*1000, '$lt': end.timestamp()*1000} })
     word = dict()
@@ -79,8 +94,8 @@ def whoCheckMyStatus():
     query = json.loads(jsonquery)
     user_id = query['id']
 
-    start = datetime.datetime(2019, query['query_start_month'], query['query_start_date']-1, 16)
-    end = datetime.datetime(2019, query['query_end_month'], query['query_end_date'], 15, 59, 59)
+    start = datetime.datetime(2020, query['query_start_month'], query['query_start_date']-1, 16)
+    end = datetime.datetime(2020, query['query_end_month'], query['query_end_date'], 15, 59, 59)
     collection = mongo.db.contactQuestionnaire
     dataSet = collection.find({'contactId': user_id, 'checkContactStatusTime': {'$gte': start.timestamp()*1000, '$lt': end.timestamp()*1000} })
     whoCheckMe = dict()
@@ -97,17 +112,18 @@ def whoCheckMyStatus():
     
 @app.route('/notificationCompletedRate', methods=['POST'])
 def notificationCompletedRate():
-    total = 0
+    systemTotal = 0
+    editTotal = 0
     selfCompleted = 0
     selfEdit = 0
 
     jsonquery = request.get_json(force=True, silent=True)
     query = json.loads(jsonquery)
     user_id = query['id']
-    # start = datetime.datetime(2019, query['query_start_month'], query['query_start_date'], 0, 0, 0, 0)
-    # end = datetime.datetime(2019, query['query_end_month'], query['query_end_date']+1, 0, 0, 0, 0)
-    start = datetime.datetime(2019, query['query_start_month'], query['query_start_date']-1, 16)
-    end = datetime.datetime(2019, query['query_end_month'], query['query_end_date'], 15, 59, 59)
+    # start = datetime.datetime(2020, query['query_start_month'], query['query_start_date'], 0, 0, 0, 0)
+    # end = datetime.datetime(2020, query['query_end_month'], query['query_end_date']+1, 0, 0, 0, 0)
+    start = datetime.datetime(2020, query['query_start_month'], query['query_start_date']-1, 16)
+    end = datetime.datetime(2020, query['query_end_month'], query['query_end_date'], 15, 59, 59)
 
     # print (start.timestamp())
     # print (end.timestamp())
@@ -115,27 +131,38 @@ def notificationCompletedRate():
     collection = mongo.db.selfQuestionnaire
     totalQuestionnaires = collection.find({'user_id': user_id, 'createdTime': {'$gte': start.timestamp()*1000, '$lt': end.timestamp()*1000} })
     for item in totalQuestionnaires:
-        if 'completeTime' not in item:
-            total += 1
+        if 'completeTime' not in item and 'changeEventId' not in item:
+            # print ("### 1 ", item )
+            systemTotal += 1
+        elif 'completeTime' not in item:
+            # print ("### 2 ", item )
+            editTotal += 1
         elif 'completeTime' in item:
             timePeriodInSec = (item['completeTime'] - item['createdTime']) / 1000
             # <= 0.5 hours
-            if timePeriodInSec <= 1800: #7200
+            if timePeriodInSec <= 1800: #7200: 2 hr
                 if 'idealShowDifferent' in item:
+                    # print ("### 3 ", item )
                     selfCompleted += 1
                 elif 'changeEventId' in item:
+                    # print ("### 4 ", item )
                     selfEdit += 1 
         
 
-    print ("total: ", total)
+    print ("systemTotal: ", systemTotal)
+    print ("editTotal: ", editTotal)
     print ("selfCompleted: ", selfCompleted)
     print ("selfEdit: ", selfEdit)
 
-    if total>0:
-        rate = selfCompleted/total
+    if systemTotal > 0:
+        systemRate = selfCompleted/systemTotal
     else:
-        rate = 0
-    message = {'total': total, 'selfCompleted': selfCompleted, 'completedRate': rate, 'selfEditCompleted': selfEdit}
+        systemRate = 0
+    if editTotal > 0:
+        editRate = selfEdit/editTotal
+    else:
+        editRate = 0
+    message = {'systemTotal': systemTotal, 'selfCompleted': selfCompleted, 'selfCompletedRate': systemRate, 'editTotal': editTotal, 'selfEditCompleted': selfEdit, 'editCompletedRate': editRate}
 
     return json.dumps(message)
 
@@ -144,10 +171,10 @@ def idealStatusResult():
     jsonquery = request.get_json(force=True, silent=True)
     query = json.loads(jsonquery)
     user_id = query['id']
-    # start = datetime.datetime(2019, query['query_start_month'], query['query_start_date'], 0, 0, 0, 0)
-    # end = datetime.datetime(2019, query['query_end_month'], query['query_end_date']+1, 0, 0, 0, 0)
-    start = datetime.datetime(2019, query['query_start_month'], query['query_start_date']-1, 16)
-    end = datetime.datetime(2019, query['query_end_month'], query['query_end_date'], 15, 59, 59)
+    # start = datetime.datetime(2020, query['query_start_month'], query['query_start_date'], 0, 0, 0, 0)
+    # end = datetime.datetime(2020, query['query_end_month'], query['query_end_date']+1, 0, 0, 0, 0)
+    start = datetime.datetime(2020, query['query_start_month'], query['query_start_date']-1, 16)
+    end = datetime.datetime(2020, query['query_end_month'], query['query_end_date'], 15, 59, 59)
 
     collection = mongo.db.selfQuestionnaire
     dataSet = collection.find({'user_id': user_id, 'completeTime': {'$gte': start.timestamp()*1000, '$lt': end.timestamp()*1000} })
@@ -170,10 +197,10 @@ def contactStatusPresentResult():
     jsonquery = request.get_json(force=True, silent=True)
     query = json.loads(jsonquery)
     user_id = query['id']
-    # start = datetime.datetime(2019, query['query_start_month'], query['query_start_date'], 0, 0, 0, 0)
-    # end = datetime.datetime(2019, query['query_end_month'], query['query_end_date']+1, 0, 0, 0, 0)
-    start = datetime.datetime(2019, query['query_start_month'], query['query_start_date']-1, 16)
-    end = datetime.datetime(2019, query['query_end_month'], query['query_end_date'], 15, 59, 59)
+    # start = datetime.datetime(2020, query['query_start_month'], query['query_start_date'], 0, 0, 0, 0)
+    # end = datetime.datetime(2020, query['query_end_month'], query['query_end_date']+1, 0, 0, 0, 0)
+    start = datetime.datetime(2020, query['query_start_month'], query['query_start_date']-1, 16)
+    end = datetime.datetime(2020, query['query_end_month'], query['query_end_date'], 15, 59, 59)
 
     collection = mongo.db.contactQuestionnaire
     dataSet = collection.find({'user_id': user_id, 'checkContactStatusTime': {'$gte': start.timestamp()*1000, '$lt': end.timestamp()*1000} })
